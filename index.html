@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The Queue</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #14161B; }
+
+body {
+  color: #EDE6D8;
+  font-family: 'Inter', sans-serif;
+  padding-bottom: 64px;
+}
+
+.mq-header { padding: 56px 24px 28px; text-align: center; border-bottom: 1px solid #23262F; }
+.mq-header h1 {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: clamp(32px, 5vw, 48px);
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+.mq-header p {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  color: #8A8D99;
+  letter-spacing: 0.04em;
+  margin: 0 0 14px;
+  text-transform: uppercase;
+}
+.mq-sync {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: #8A8D99;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.02em;
+}
+.mq-sync-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.mq-sync-on { background: #7C9473; }
+.mq-sync-off { background: #6A6D77; }
+.mq-sync-connecting { background: #C9A227; animation: mq-pulse 1s ease-in-out infinite; }
+@keyframes mq-pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+.mq-grid {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 24px 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+@media (max-width: 860px) { .mq-grid { grid-template-columns: 1fr; max-width: 480px; } }
+
+.mq-col {
+  background: #1B1E26;
+  border: 1px solid #262A34;
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mq-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  transform: rotate(-3deg);
+  flex-shrink: 0;
+}
+
+.mq-col-head { display: flex; align-items: center; gap: 8px; }
+.mq-col-head h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 18px; margin: 0; flex: 1; color: #EDE6D8; }
+.mq-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.mq-draw-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1.5px dashed #3A3E49;
+  background: transparent;
+  color: #B7BAC4;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color .18s ease, color .18s ease, background .18s ease;
+}
+.mq-draw-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.mq-draw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.mq-ticket {
+  position: relative;
+  background: #21242D;
+  border: 1.5px dashed var(--accent);
+  border-radius: 10px;
+  padding: 16px 16px 14px;
+  overflow: hidden;
+}
+.mq-ticket::before, .mq-ticket::after {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  background: #1B1E26; border-radius: 50%; top: 50%; transform: translateY(-50%);
+  border: 1.5px dashed var(--accent);
+}
+.mq-ticket::before { left: -9px; }
+.mq-ticket::after { right: -9px; }
+
+.mq-ticket-top {
+  display: flex; align-items: center; gap: 8px; color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.1em; margin-bottom: 10px;
+}
+.mq-ticket-title {
+  font-family: 'Fraunces', serif; font-weight: 600; font-size: 19px; line-height: 1.25;
+  color: #EDE6D8; margin-bottom: 14px; word-break: break-word;
+}
+.mq-ticket-title-blank { color: #565A66; letter-spacing: 0.3em; }
+
+.mq-finish-btn {
+  width: 100%; padding: 10px; border-radius: 8px; border: none; background: var(--accent);
+  color: #14161B; font-weight: 600; font-size: 13px; cursor: pointer;
+  transition: filter .15s ease; font-family: 'Inter', sans-serif;
+}
+.mq-finish-btn:hover { filter: brightness(1.1); }
+
+.mq-ticket-spin { animation: mq-spin 0.65s ease; }
+@keyframes mq-spin {
+  0% { transform: scale(0.96) rotate(-1deg); opacity: 0.7; }
+  50% { transform: scale(1.01) rotate(1deg); }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.mq-ticket-reveal { animation: mq-reveal 0.4s ease; }
+@keyframes mq-reveal { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .mq-ticket-spin, .mq-ticket-reveal { animation: none; } }
+
+.mq-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
+.mq-list-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
+.mq-list-item:hover { background: #21242D; }
+.mq-list-item button {
+  background: none; border: none; color: #565A66; cursor: pointer; padding: 4px 6px;
+  border-radius: 6px; font-size: 15px; line-height: 1;
+}
+.mq-list-item button:hover { color: #EDE6D8; background: #2C3039; }
+.mq-empty { color: #565A66; font-size: 13px; padding: 8px 10px; font-style: italic; }
+
+.mq-add { display: flex; gap: 8px; }
+.mq-add input {
+  flex: 1; background: #14161B; border: 1px solid #2C3039; border-radius: 8px;
+  padding: 9px 12px; color: #EDE6D8; font-family: 'Inter', sans-serif; font-size: 14px;
+}
+.mq-add input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+.mq-add input::placeholder { color: #565A66; }
+.mq-add button {
+  background: var(--accent-soft); color: var(--accent); border: none; border-radius: 8px;
+  width: 38px; cursor: pointer; font-size: 18px; line-height: 1;
+}
+.mq-add button:hover { filter: brightness(1.15); }
+
+.mq-finished { border-top: 1px solid #262A34; padding-top: 12px; }
+.mq-finished-toggle {
+  display: flex; align-items: center; gap: 6px; background: none; border: none; color: #8A8D99;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.05em; cursor: pointer;
+  padding: 0; text-transform: uppercase; width: 100%;
+}
+.mq-finished-toggle:hover { color: #EDE6D8; }
+.mq-chevron { display: inline-block; transition: transform .15s ease; }
+.mq-finished-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mq-finished-list li { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: #B7BAC4; padding: 0 2px; }
+.mq-date { font-family: 'IBM Plex Mono', monospace; color: #565A66; font-size: 11px; white-space: nowrap; }
+
+button:focus-visible, input:focus-visible { outline: 2px solid #C9A227; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+
+// ============================================================
+// STEP 1: Paste your Firebase config here (see setup guide).
+// Leave as-is and the app still works, saving to this device only.
+// ============================================================
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+// ============================================================
+
+const LOCAL_KEY = "media-queue-local-v1";
+
+const CATEGORIES = [
+  { key: "movies", label: "Movies", unit: "movie", code: "MOV", accent: "#C4562F", accentSoft: "rgba(196,86,47,0.14)" },
+  { key: "books", label: "Books", unit: "book", code: "BK", accent: "#7C9473", accentSoft: "rgba(124,148,115,0.14)" },
+  { key: "tv", label: "TV Shows", unit: "show", code: "TV", accent: "#5E82A8", accentSoft: "rgba(94,130,168,0.14)" },
+];
+
+function emptyData() {
+  return {
+    movies: { pending: [], current: null, finished: [] },
+    books: { pending: [], current: null, finished: [] },
+    tv: { pending: [], current: null, finished: [] },
+  };
+}
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function escapeHTML(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+let state = emptyData();
+let drawingCat = null;
+let expandedFinished = { movies: false, books: false, tv: false };
+let syncStatus = "local"; // local | connecting | synced | error
+let cloudEnabled = false;
+let docRef = null;
+let writeInFlight = false;
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (raw) state = { ...emptyData(), ...JSON.parse(raw) };
+  } catch (e) { /* ignore */ }
+}
+function saveLocal() {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+}
+async function saveCloud() {
+  if (!cloudEnabled) return;
+  try {
+    writeInFlight = true;
+    await setDoc(docRef, state);
+    syncStatus = "synced";
+  } catch (e) {
+    console.error("Cloud save failed:", e);
+    syncStatus = "error";
+  } finally {
+    writeInFlight = false;
+    renderStatus();
+  }
+}
+function persist() {
+  saveLocal();
+  saveCloud();
+}
+
+function initCloud() {
+  const configured = firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
+  if (!configured) { cloudEnabled = false; syncStatus = "local"; return; }
+  try {
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    docRef = doc(db, "mediaQueue", "shared");
+    cloudEnabled = true;
+    syncStatus = "connecting";
+    onSnapshot(docRef, (snap) => {
+      if (writeInFlight) return;
+      if (snap.exists()) {
+        state = { ...emptyData(), ...snap.data() };
+        render();
+      } else {
+        saveCloud();
+      }
+      syncStatus = "synced";
+      renderStatus();
+    }, (err) => {
+      console.error("Cloud sync error:", err);
+      syncStatus = "error";
+      renderStatus();
+    });
+  } catch (e) {
+    console.error("Firebase init failed:", e);
+    cloudEnabled = false;
+    syncStatus = "error";
+  }
+}
+
+function addItem(catKey) {
+  const input = document.getElementById(`input-${catKey}`);
+  const title = input.value.trim();
+  if (!title) return;
+  state[catKey].pending.push({ id: uid(), title });
+  input.value = "";
+  persist();
+  render();
+}
+function removeItem(catKey, id) {
+  state[catKey].pending = state[catKey].pending.filter((i) => i.id !== id);
+  persist();
+  render();
+}
+function drawOne(catKey) {
+  const pending = state[catKey].pending;
+  if (pending.length === 0 || state[catKey].current) return;
+  const picked = pending[Math.floor(Math.random() * pending.length)];
+  drawingCat = catKey;
+  render();
+  setTimeout(() => {
+    state[catKey].pending = state[catKey].pending.filter((i) => i.id !== picked.id);
+    state[catKey].current = picked;
+    drawingCat = null;
+    persist();
+    render();
+  }, 650);
+}
+function markFinished(catKey) {
+  const current = state[catKey].current;
+  if (!current) return;
+  state[catKey].current = null;
+  state[catKey].finished.unshift({ ...current, finishedDate: new Date().toISOString() });
+  persist();
+  render();
+}
+
+function syncBadgeHTML() {
+  if (!cloudEnabled) return `<span class="mq-sync-dot mq-sync-off"></span> Saved on this device only — add a Firebase config to sync`;
+  if (syncStatus === "synced") return `<span class="mq-sync-dot mq-sync-on"></span> Synced across your devices`;
+  if (syncStatus === "connecting") return `<span class="mq-sync-dot mq-sync-connecting"></span> Connecting…`;
+  return `<span class="mq-sync-dot mq-sync-off"></span> Sync error — saved locally only`;
+}
+function renderStatus() {
+  const el = document.getElementById("sync-badge");
+  if (el) el.innerHTML = syncBadgeHTML();
+}
+
+function renderColumn(cat) {
+  const catData = state[cat.key];
+  const isDrawing = drawingCat === cat.key;
+  const canDraw = !catData.current && catData.pending.length > 0 && !isDrawing;
+
+  let ticketHTML;
+  if (isDrawing) {
+    ticketHTML = `
+      <div class="mq-ticket mq-ticket-spin">
+        <div class="mq-ticket-top"><span class="mq-stamp" style="--accent:${cat.accent}">${cat.code}</span><span>DRAWING…</span></div>
+        <div class="mq-ticket-title mq-ticket-title-blank">···</div>
+      </div>`;
+  } else if (catData.current) {
+    ticketHTML = `
+      <div class="mq-ticket mq-ticket-reveal">
+        <div class="mq-ticket-top"><span class="mq-stamp" style="--accent:${cat.accent}">${cat.code}</span><span>UP NEXT</span></div>
+        <div class="mq-ticket-title">${escapeHTML(catData.current.title)}</div>
+        <button class="mq-finish-btn" data-action="finish" data-cat="${cat.key}">Mark finished</button>
+      </div>`;
+  } else {
+    ticketHTML = `
+      <button class="mq-draw-btn" data-action="draw" data-cat="${cat.key}" ${canDraw ? "" : "disabled"}>
+        ${catData.pending.length === 0 ? `Add a ${cat.unit} to draw` : "Draw one"}
+      </button>`;
+  }
+
+  const pendingHTML = catData.pending.length
+    ? catData.pending.map((item) => `
+        <li class="mq-list-item">
+          <span>${escapeHTML(item.title)}</span>
+          <button data-action="remove" data-cat="${cat.key}" data-id="${item.id}" aria-label="Remove">×</button>
+        </li>`).join("")
+    : `<li class="mq-empty">Nothing queued yet.</li>`;
+
+  const finishedOpen = expandedFinished[cat.key];
+  const finishedHTML = finishedOpen
+    ? `<ul class="mq-finished-list">
+        ${catData.finished.length === 0 ? `<li class="mq-empty">Nothing finished yet.</li>` : ""}
+        ${catData.finished.map((item) => `<li><span>${escapeHTML(item.title)}</span><span class="mq-date">${formatDate(item.finishedDate)}</span></li>`).join("")}
+      </ul>`
+    : "";
+
+  return `
+    <section class="mq-col" style="--accent:${cat.accent}; --accent-soft:${cat.accentSoft}">
+      <div class="mq-col-head">
+        <span class="mq-stamp" style="--accent:${cat.accent}">${cat.code}</span>
+        <h2>${cat.label}</h2>
+        <span class="mq-count">${catData.pending.length}</span>
+      </div>
+      <div>${ticketHTML}</div>
+      <ul class="mq-list">${pendingHTML}</ul>
+      <div class="mq-add">
+        <input type="text" id="input-${cat.key}" placeholder="Add a ${cat.unit}…" />
+        <button data-action="add" data-cat="${cat.key}" aria-label="Add">+</button>
+      </div>
+      <div class="mq-finished">
+        <button data-action="toggle-finished" data-cat="${cat.key}" class="mq-finished-toggle">
+          <span class="mq-chevron" style="transform:rotate(${finishedOpen ? 180 : 0}deg)">⌄</span>
+          Finished (${catData.finished.length})
+        </button>
+        ${finishedHTML}
+      </div>
+    </section>`;
+}
+
+function render() {
+  const root = document.getElementById("app");
+  const inputVals = {};
+  CATEGORIES.forEach((c) => {
+    const el = document.getElementById(`input-${c.key}`);
+    if (el) inputVals[c.key] = el.value;
+  });
+
+  root.innerHTML = `
+    <header class="mq-header">
+      <h1>The Queue</h1>
+      <p>Stack it up, draw a ticket, get to it.</p>
+      <div class="mq-sync" id="sync-badge">${syncBadgeHTML()}</div>
+    </header>
+    <main class="mq-grid">${CATEGORIES.map(renderColumn).join("")}</main>
+  `;
+
+  CATEGORIES.forEach((c) => {
+    const el = document.getElementById(`input-${c.key}`);
+    if (el && inputVals[c.key]) el.value = inputVals[c.key];
+  });
+
+  document.querySelectorAll("[data-action]").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      const t = e.currentTarget;
+      const action = t.dataset.action, cat = t.dataset.cat, id = t.dataset.id;
+      if (action === "add") addItem(cat);
+      else if (action === "remove") removeItem(cat, id);
+      else if (action === "draw") drawOne(cat);
+      else if (action === "finish") markFinished(cat);
+      else if (action === "toggle-finished") { expandedFinished[cat] = !expandedFinished[cat]; render(); }
+    });
+  });
+  CATEGORIES.forEach((c) => {
+    const input = document.getElementById(`input-${c.key}`);
+    if (input) {
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); addItem(c.key); }
+      });
+    }
+  });
+}
+
+loadLocal();
+render();
+initCloud();
+</script>
+</body>
+</html>
